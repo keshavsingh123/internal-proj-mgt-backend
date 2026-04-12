@@ -5,9 +5,17 @@ import {
   getProjectById,
   getProjects,
   updateProject,
+  addProjectMember,
+  removeProjectMember,
+  getProjectMembers,
 } from "../controller/projectController.js";
 import { protect } from "../middleware/authMiddleware.js";
-import validateRequiredFields from "../middleware/validate.js";
+import joiValidate from "../middleware/joiValidate.js";
+import {
+  createProjectSchema,
+  updateProjectSchema,
+  addProjectMemberSchema,
+} from "../validation/projectValidation.js";
 import projectTaskRoutes from "./projectTaskRoute.js";
 
 const router = express.Router();
@@ -18,11 +26,19 @@ router.use("/:projectId/tasks", projectTaskRoutes);
 router
   .route("/")
   .get(getProjects)
-  .post(validateRequiredFields(["name"]), createProject);
+  .post(joiValidate(createProjectSchema), createProject);
+
 router
   .route("/:projectId")
   .get(getProjectById)
-  .put(updateProject)
+  .put(joiValidate(updateProjectSchema), updateProject)
   .delete(deleteProject);
+
+router
+  .route("/:projectId/members")
+  .get(getProjectMembers)
+  .post(joiValidate(addProjectMemberSchema), addProjectMember);
+
+router.route("/:projectId/members/:memberId").delete(removeProjectMember);
 
 export default router;

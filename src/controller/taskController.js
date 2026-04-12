@@ -26,6 +26,8 @@ export const getTaskById = asyncHandler(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     success: true,
+    message: "Task retrieved successfully",
+
     task,
   });
 });
@@ -40,6 +42,7 @@ export const createTask = asyncHandler(async (req, res) => {
   res.status(StatusCodes.CREATED).json({
     success: true,
     message: "Task created successfully",
+    task,
   });
 });
 

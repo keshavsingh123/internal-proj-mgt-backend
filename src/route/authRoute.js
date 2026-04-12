@@ -5,16 +5,13 @@ import {
   registerUser,
 } from "../controller/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
-import validateRequiredFields from "../middleware/validate.js";
+import joiValidate from "../middleware/joiValidate.js";
+import { loginSchema, registerSchema } from "../validation/authValidation.js";
 
 const router = express.Router();
 
-router.post(
-  "/register",
-  validateRequiredFields(["name", "email", "password"]),
-  registerUser,
-);
-router.post("/login", validateRequiredFields(["email", "password"]), loginUser);
-router.get("/me", protect, getCurrentUser);
+router.post("/register", joiValidate(registerSchema), registerUser);
+router.post("/login", joiValidate(loginSchema), loginUser);
+router.get("/get-user", protect, getCurrentUser);
 
 export default router;

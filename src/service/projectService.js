@@ -80,3 +80,103 @@ export const deleteProjectService = async (projectId, userId) => {
 
   return { projectId };
 };
+export const getProjectMembersService = async (projectId, userId) => {
+  const project = await Project.findOne({
+    _id: projectId,
+    $or: [{ owner: userId }, { members: userId }],
+  }).populate("members", "name email role");
+
+  if (!project) {
+    const error = new Error("Project not found or access denied");
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  return project.members;
+};
+
+export const addProjectMemberService = async (projectId, memberId, userId) => {
+  const project = await Project.findOne({
+    _id: projectId,
+    owner: userId,
+  });
+
+  if (!project) {
+    const error = new Error(
+      "Project not found or only the owner can add members",
+    );
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  const member = await User.findById(memberId).select("_id name email role");
+  if (!member) {
+    const error = new Error("Member user not found");
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  if (String(project.owner) === String(memberId)) {
+    const error = new Error("Project owner is already part of the project");
+    error.statusCode = StatusCodes.BAD_REQUEST;
+    throw error;
+  }
+
+  const alreadyMember = project.members.some(
+    (existingMemberId) => String(existingMemberId) === String(memberId),
+  );
+
+  if (alreadyMember) {
+    const error = new Error("User is already a project member");
+    error.statusCode = StatusCodes.CONFLICT;
+    throw error;
+  }
+
+  project.members.push(memberId);
+  await project.save();
+
+  return getProjectByIdService(projectId, userId);
+};
+
+export const removeProjectMemberService = async (
+  projectId,
+  memberId,
+  userId,
+) => {
+  const project = await Project.findOne({
+    _id: projectId,
+    owner: userId,
+  });
+
+  if (!project) {
+    const error = new Error(
+      "Project not found or only the owner can remove members",
+    );
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  if (String(project.owner) === String(memberId)) {
+    const error = new Error("Project owner cannot be removed from members");
+    error.statusCode = StatusCodes.BAD_REQUEST;
+    throw error;
+  }
+
+  const memberExists = project.members.some(
+    (existingMemberId) => String(existingMemberId) === String(memberId),
+  );
+
+  if (!memberExists) {
+    const error = new Error("User is not a member of this project");
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  project.members = project.members.filter(
+    (existingMemberId) => String(existingMemberId) !== String(memberId),
+  );
+
+  await project.save();
+
+  return getProjectByIdService(projectId, userId);
+};

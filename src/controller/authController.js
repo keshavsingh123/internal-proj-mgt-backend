@@ -21,7 +21,7 @@ export const loginUser = asyncHandler(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     success: true,
-    message: "Login successful",
+    message: "LogedIn successfully",
     ...result,
   });
 });
@@ -31,6 +31,7 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     success: true,
+    message: "User retrieved successfully",
     user,
   });
 });

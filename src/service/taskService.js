@@ -73,6 +73,12 @@ export const updateTaskService = async (taskId, payload, userId) => {
 
   await ensureProjectAccess(task.project, userId);
 
+  if (String(task.createdBy) !== String(userId)) {
+    const error = new Error("Only the task creator can update this task");
+    error.statusCode = StatusCodes.FORBIDDEN;
+    throw error;
+  }
+
   if (payload.title !== undefined) task.title = payload.title.trim();
   if (payload.description !== undefined)
     task.description = payload.description.trim();
@@ -89,6 +95,30 @@ export const updateTaskService = async (taskId, payload, userId) => {
   return populatedTask;
 };
 
+export const deleteTaskService = async (taskId, userId) => {
+  const task = await Task.findById(taskId);
+  if (!task) {
+    const error = new Error("Task not found");
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  await ensureProjectAccess(task.project, userId);
+
+  if (String(task.createdBy) !== String(userId)) {
+    const error = new Error("Only the task creator can delete this task");
+    error.statusCode = StatusCodes.FORBIDDEN;
+    throw error;
+  }
+
+  const projectId = String(task.project);
+  await task.deleteOne();
+
+  emitToProjectRoom(projectId, "task:deleted", { taskId });
+
+  return { taskId };
+};
+
 export const updateTaskStatusService = async (taskId, status, userId) => {
   const task = await Task.findById(taskId);
   if (!task) {
@@ -96,7 +126,14 @@ export const updateTaskStatusService = async (taskId, status, userId) => {
     error.statusCode = StatusCodes.NOT_FOUND;
     throw error;
   }
+
   await ensureProjectAccess(task.project, userId);
+
+  if (String(task.createdBy) !== String(userId)) {
+    const error = new Error("Only the task creator can update task status");
+    error.statusCode = StatusCodes.FORBIDDEN;
+    throw error;
+  }
 
   task.status = status;
   await task.save();
@@ -105,21 +142,4 @@ export const updateTaskStatusService = async (taskId, status, userId) => {
   emitToProjectRoom(String(task.project), "task:statusChanged", populatedTask);
 
   return populatedTask;
-};
-
-export const deleteTaskService = async (taskId, userId) => {
-  const task = await Task.findById(taskId);
-  if (!task) {
-    const error = new Error("Task not found");
-    error.statusCode = StatusCodes.NOT_FOUND;
-    throw error;
-  }
-  await ensureProjectAccess(task.project, userId);
-
-  const projectId = String(task.project);
-  await task.deleteOne();
-
-  emitToProjectRoom(projectId, "task:deleted", { taskId });
-
-  return { taskId };
 };
