@@ -28,6 +28,11 @@ const projectSchema = new mongoose.Schema(
       enum: ["active", "archived"],
       default: "active",
     },
+    isDelete: {
+      type: Number,
+      enum: [0, 1],
+      default: 1,
+    },
   },
   {
     timestamps: true,

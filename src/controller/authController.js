@@ -4,6 +4,7 @@ import {
   getCurrentUserService,
   loginUserService,
   registerUserService,
+  softDeleteUserService,
 } from "../service/authService.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
@@ -33,5 +34,14 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
     success: true,
     message: "User retrieved successfully",
     user,
+  });
+});
+export const deleteUser = asyncHandler(async (req, res) => {
+  const result = await softDeleteUserService(req.user._id);
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: "User deleted successfully",
+    ...result,
   });
 });

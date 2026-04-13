@@ -2,10 +2,16 @@ import { StatusCodes } from "http-status-codes";
 import Project from "../model/Project.js";
 import Task from "../model/Task.js";
 import { emitToProjectRoom } from "../sockets/index.js";
+import pick from "../utils/pick.js";
+import {
+  buildPaginationMeta,
+  getPaginationOptions,
+} from "../utils/pagination.js";
 
 const ensureProjectAccess = async (projectId, userId) => {
   const project = await Project.findOne({
     _id: projectId,
+    isDelete: 1,
     $or: [{ owner: userId }, { members: userId }],
   });
 
@@ -19,26 +25,61 @@ const ensureProjectAccess = async (projectId, userId) => {
 };
 
 const populateTask = async (taskId) => {
-  return Task.findById(taskId).populate("assignee", "name email");
+  return Task.findOne({
+    _id: taskId,
+    isDelete: 1,
+  })
+    .populate("assignee", "name email role isDelete")
+    .populate("createdBy", "name email role isDelete");
 };
-export const getTasksByProjectService = async (projectId, userId) => {
+
+export const getTasksByProjectService = async (
+  projectId,
+  userId,
+  queryParams,
+) => {
   await ensureProjectAccess(projectId, userId);
 
-  const tasks = await Task.find({ project: projectId })
-    .populate("assignee", "name email")
-    .populate("createdBy", "name email")
-    .sort({ createdAt: -1 });
+  const filters = pick(queryParams, ["status", "priority", "search"]);
+  const { page, limit, skip } = getPaginationOptions(queryParams);
 
-  return tasks;
+  const query = {
+    project: projectId,
+    isDelete: 1,
+  };
+
+  if (filters.status) query.status = filters.status;
+  if (filters.priority) query.priority = filters.priority;
+  if (filters.search) query.title = { $regex: filters.search, $options: "i" };
+
+  const [tasks, total] = await Promise.all([
+    Task.find(query)
+      .populate("assignee", "name email role isDelete")
+      .populate("createdBy", "name email role isDelete")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Task.countDocuments(query),
+  ]);
+
+  return {
+    tasks,
+    pagination: buildPaginationMeta({ page, limit, total }),
+  };
 };
 
 export const getTaskByIdService = async (taskId, userId) => {
-  const task = await Task.findById(taskId);
+  const task = await Task.findOne({
+    _id: taskId,
+    isDelete: 1,
+  });
+
   if (!task) {
     const error = new Error("Task not found");
     error.statusCode = StatusCodes.NOT_FOUND;
     throw error;
   }
+
   await ensureProjectAccess(task.project, userId);
 
   return populateTask(task._id);
@@ -56,7 +97,9 @@ export const createTaskService = async (projectId, payload, userId) => {
     assignee: payload.assignee || null,
     createdBy: userId,
     dueDate: payload.dueDate || null,
+    isDelete: 1,
   });
+
   const populatedTask = await populateTask(task._id);
   emitToProjectRoom(projectId, "task:created", populatedTask);
 
@@ -64,7 +107,11 @@ export const createTaskService = async (projectId, payload, userId) => {
 };
 
 export const updateTaskService = async (taskId, payload, userId) => {
-  const task = await Task.findById(taskId);
+  const task = await Task.findOne({
+    _id: taskId,
+    isDelete: 1,
+  });
+
   if (!task) {
     const error = new Error("Task not found");
     error.statusCode = StatusCodes.NOT_FOUND;
@@ -95,8 +142,35 @@ export const updateTaskService = async (taskId, payload, userId) => {
   return populatedTask;
 };
 
+export const updateTaskStatusService = async (taskId, status, userId) => {
+  const task = await Task.findOne({
+    _id: taskId,
+    isDelete: 1,
+  });
+
+  if (!task) {
+    const error = new Error("Task not found");
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  await ensureProjectAccess(task.project, userId);
+
+  task.status = status;
+  await task.save();
+
+  const populatedTask = await populateTask(task._id);
+  emitToProjectRoom(String(task.project), "task:statusChanged", populatedTask);
+
+  return populatedTask;
+};
+
 export const deleteTaskService = async (taskId, userId) => {
-  const task = await Task.findById(taskId);
+  const task = await Task.findOne({
+    _id: taskId,
+    isDelete: 1,
+  });
+
   if (!task) {
     const error = new Error("Task not found");
     error.statusCode = StatusCodes.NOT_FOUND;
@@ -111,35 +185,10 @@ export const deleteTaskService = async (taskId, userId) => {
     throw error;
   }
 
-  const projectId = String(task.project);
-  await task.deleteOne();
-
-  emitToProjectRoom(projectId, "task:deleted", { taskId });
-
-  return { taskId };
-};
-
-export const updateTaskStatusService = async (taskId, status, userId) => {
-  const task = await Task.findById(taskId);
-  if (!task) {
-    const error = new Error("Task not found");
-    error.statusCode = StatusCodes.NOT_FOUND;
-    throw error;
-  }
-
-  await ensureProjectAccess(task.project, userId);
-
-  if (String(task.createdBy) !== String(userId)) {
-    const error = new Error("Only the task creator can update task status");
-    error.statusCode = StatusCodes.FORBIDDEN;
-    throw error;
-  }
-
-  task.status = status;
+  task.isDelete = 0;
   await task.save();
 
-  const populatedTask = await populateTask(task._id);
-  emitToProjectRoom(String(task.project), "task:statusChanged", populatedTask);
+  emitToProjectRoom(String(task.project), "task:deleted", { taskId });
 
-  return populatedTask;
+  return { taskId };
 };

@@ -41,6 +41,11 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    isDelete: {
+      type: Number,
+      enum: [0, 1],
+      default: 1,
+    },
   },
   {
     timestamps: true,

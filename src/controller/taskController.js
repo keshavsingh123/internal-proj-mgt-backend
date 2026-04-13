@@ -1,5 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import asyncHandler from "../utils/asyncHandler.js";
+import pick from "../utils/pick.js";
+
 import {
   createTaskService,
   deleteTaskService,
@@ -10,14 +12,22 @@ import {
 } from "../service/taskService.js";
 
 export const getTasksByProject = asyncHandler(async (req, res) => {
-  const tasks = await getTasksByProjectService(
+  const options = pick(req.query, [
+    "page",
+    "limit",
+    "status",
+    "priority",
+    "search",
+  ]);
+  const result = await getTasksByProjectService(
     req.params.projectId,
     req.user._id,
+    options,
   );
 
   res.status(StatusCodes.OK).json({
     success: true,
-    tasks,
+    ...result,
   });
 });
 

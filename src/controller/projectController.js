@@ -10,14 +10,14 @@ import {
   getProjectMembersService,
   addProjectMemberService,
 } from "../service/projectService.js";
-
+import pick from "../utils/pick.js";
 export const getProjects = asyncHandler(async (req, res) => {
-  const projects = await getProjectsService(req.user._id);
+  const options = pick(req.query, ["page", "limit", "search"]);
+  const result = await getProjectsService(req.user._id, options);
 
   res.status(StatusCodes.OK).json({
     success: true,
-    message: "Projects retrieved successfully",
-    projects,
+    ...result,
   });
 });
 
@@ -66,15 +66,29 @@ export const deleteProject = asyncHandler(async (req, res) => {
     ...result,
   });
 });
+// export const getProjectMembers = asyncHandler(async (req, res) => {
+//   const members = await getProjectMembersService(
+//     req.params.projectId,
+//     req.user._id,
+//   );
+
+//   res.status(StatusCodes.OK).json({
+//     success: true,
+//     members,
+//   });
+// });
+
 export const getProjectMembers = asyncHandler(async (req, res) => {
-  const members = await getProjectMembersService(
+  const options = pick(req.query, ["page", "limit"]);
+  const result = await getProjectMembersService(
     req.params.projectId,
     req.user._id,
+    options,
   );
 
   res.status(StatusCodes.OK).json({
     success: true,
-    members,
+    ...result,
   });
 });
 

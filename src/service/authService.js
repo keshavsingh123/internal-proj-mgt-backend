@@ -7,19 +7,31 @@ export const registerUserService = async ({ name, email, password }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
   const existingUser = await User.findOne({ email: normalizedEmail });
-  if (existingUser) {
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  if (existingUser && existingUser.isDelete === 1) {
     const error = new Error("User already exists with this email");
     error.statusCode = StatusCodes.CONFLICT;
     throw error;
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  let user;
 
-  const user = await User.create({
-    name: name.trim(),
-    email: normalizedEmail,
-    password: hashedPassword,
-  });
+  if (existingUser && existingUser.isDelete === 0) {
+    existingUser.name = name.trim();
+    existingUser.password = hashedPassword;
+    existingUser.isDelete = 1;
+    await existingUser.save();
+    user = existingUser;
+  } else {
+    user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      isDelete: 1,
+    });
+  }
 
   const token = generateToken({ userId: user._id });
 
@@ -29,6 +41,7 @@ export const registerUserService = async ({ name, email, password }) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      isDelete: user.isDelete,
     },
     token,
   };
@@ -37,7 +50,11 @@ export const registerUserService = async ({ name, email, password }) => {
 export const loginUserService = async ({ email, password }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
-  const user = await User.findOne({ email: normalizedEmail });
+  const user = await User.findOne({
+    email: normalizedEmail,
+    isDelete: 1,
+  });
+
   if (!user) {
     const error = new Error("Invalid email or password");
     error.statusCode = StatusCodes.UNAUTHORIZED;
@@ -52,24 +69,48 @@ export const loginUserService = async ({ email, password }) => {
   }
 
   const token = generateToken({ userId: user._id });
+
   return {
     user: {
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
+      isDelete: user.isDelete,
     },
     token,
   };
 };
 
 export const getCurrentUserService = async (userId) => {
-  const user = await User.findById(userId).select("-password");
+  const user = await User.findOne({
+    _id: userId,
+    isDelete: 1,
+  }).select("-password");
 
   if (!user) {
     const error = new Error("User not found");
     error.statusCode = StatusCodes.NOT_FOUND;
     throw error;
   }
+
   return user;
+};
+
+export const softDeleteUserService = async (userId) => {
+  const user = await User.findOne({
+    _id: userId,
+    isDelete: 1,
+  });
+
+  if (!user) {
+    const error = new Error("User not found");
+    error.statusCode = StatusCodes.NOT_FOUND;
+    throw error;
+  }
+
+  user.isDelete = 0;
+  await user.save();
+
+  return { userId: user._id };
 };

@@ -1,24 +1,49 @@
 import { StatusCodes } from "http-status-codes";
 import Project from "../model/Project.js";
+import User from "../model/User.js";
+import pick from "../utils/pick.js";
+import {
+  buildPaginationMeta,
+  getPaginationOptions,
+} from "../utils/pagination.js";
 
-export const getProjectsService = async (userId) => {
-  const projects = await Project.find({
+export const getProjectsService = async (userId, queryParams) => {
+  const filters = pick(queryParams, ["search"]);
+  const { page, limit, skip } = getPaginationOptions(queryParams);
+
+  const query = {
+    isDelete: 1,
     $or: [{ owner: userId }, { members: userId }],
-  })
-    .populate("owner", "name email")
-    .populate("members", "name email")
-    .sort({ createdAt: -1 });
+  };
 
-  return projects;
+  if (filters.search) {
+    query.name = { $regex: filters.search, $options: "i" };
+  }
+
+  const [projects, total] = await Promise.all([
+    Project.find(query)
+      .populate("owner", "name email role isDelete")
+      .populate("members", "name email role isDelete")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Project.countDocuments(query),
+  ]);
+
+  return {
+    projects,
+    pagination: buildPaginationMeta({ page, limit, total }),
+  };
 };
 
 export const getProjectByIdService = async (projectId, userId) => {
   const project = await Project.findOne({
     _id: projectId,
+    isDelete: 1,
     $or: [{ owner: userId }, { members: userId }],
   })
-    .populate("owner", "name email")
-    .populate("members", "name email");
+    .populate("owner", "name email role isDelete")
+    .populate("members", "name email role isDelete");
 
   if (!project) {
     const error = new Error("Project not found or access denied");
@@ -35,6 +60,7 @@ export const createProjectService = async ({ name, description }, userId) => {
     description: description?.trim() || "",
     owner: userId,
     members: [userId],
+    isDelete: 1,
   });
 
   return getProjectByIdService(project._id, userId);
@@ -44,7 +70,9 @@ export const updateProjectService = async (projectId, payload, userId) => {
   const project = await Project.findOne({
     _id: projectId,
     owner: userId,
+    isDelete: 1,
   });
+
   if (!project) {
     const error = new Error(
       "Project not found or only the owner can update it",
@@ -67,7 +95,9 @@ export const deleteProjectService = async (projectId, userId) => {
   const project = await Project.findOne({
     _id: projectId,
     owner: userId,
+    isDelete: 1,
   });
+
   if (!project) {
     const error = new Error(
       "Project not found or only the owner can delete it",
@@ -76,15 +106,24 @@ export const deleteProjectService = async (projectId, userId) => {
     throw error;
   }
 
-  await project.deleteOne();
+  project.isDelete = 0;
+  await project.save();
 
-  return { projectId };
+  return { projectId: project._id };
 };
-export const getProjectMembersService = async (projectId, userId) => {
+
+export const getProjectMembersService = async (
+  projectId,
+  userId,
+  queryParams,
+) => {
+  const { page, limit, skip } = getPaginationOptions(queryParams);
+
   const project = await Project.findOne({
     _id: projectId,
+    isDelete: 1,
     $or: [{ owner: userId }, { members: userId }],
-  }).populate("members", "name email role");
+  });
 
   if (!project) {
     const error = new Error("Project not found or access denied");
@@ -92,13 +131,31 @@ export const getProjectMembersService = async (projectId, userId) => {
     throw error;
   }
 
-  return project.members;
+  const memberQuery = {
+    _id: { $in: project.members },
+    isDelete: 1,
+  };
+
+  const [members, total] = await Promise.all([
+    User.find(memberQuery)
+      .select("name email role isDelete createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    User.countDocuments(memberQuery),
+  ]);
+
+  return {
+    members,
+    pagination: buildPaginationMeta({ page, limit, total }),
+  };
 };
 
 export const addProjectMemberService = async (projectId, memberId, userId) => {
   const project = await Project.findOne({
     _id: projectId,
     owner: userId,
+    isDelete: 1,
   });
 
   if (!project) {
@@ -109,7 +166,11 @@ export const addProjectMemberService = async (projectId, memberId, userId) => {
     throw error;
   }
 
-  const member = await User.findById(memberId).select("_id name email role");
+  const member = await User.findOne({
+    _id: memberId,
+    isDelete: 1,
+  }).select("_id name email role");
+
   if (!member) {
     const error = new Error("Member user not found");
     error.statusCode = StatusCodes.NOT_FOUND;
@@ -146,6 +207,7 @@ export const removeProjectMemberService = async (
   const project = await Project.findOne({
     _id: projectId,
     owner: userId,
+    isDelete: 1,
   });
 
   if (!project) {

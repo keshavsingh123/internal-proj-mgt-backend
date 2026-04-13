@@ -16,12 +16,15 @@ export const protect = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.userId).select("-password");
+    const user = await User.findOne({
+      _id: decoded.userId,
+      isDelete: 1,
+    }).select("-password");
 
     if (!user) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
         success: false,
-        message: "User not found",
+        message: "User not found or deleted",
       });
     }
 
