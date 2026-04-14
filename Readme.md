@@ -59,3 +59,79 @@ This backend supports:
 - Join project room
 - Leave project room
 - Broadcast task changes in real time
+
+## API
+
+### Auth API
+
+# /api/auth
+
+- POST /register → Register user
+- POST /login → Login user
+- GET /get-user → Get current logged-in user
+- GET /users → Get all registered users (search + pagination)
+- DELETE /delete-user → Soft delete current user
+
+### Project API
+
+# /api/projects
+
+- GET / → Get all projects (pagination + search)
+- POST / → Create project
+- GET /:projectId → Get single project
+- PUT /:projectId → Update project (owner only)
+- DELETE /:projectId → Soft delete project (owner only)
+
+### Project Member API
+
+# /api/projects
+
+- GET /:projectId/members → Get project members
+- POST /:projectId/members → Add member (owner only)
+- DELETE /:projectId/members/:memberId → Remove member (owner only)
+
+### Task API
+
+# /api/projects/:projectId/tasks
+
+- GET / → Get all tasks of project
+- POST / → Create task
+- PUT /update-task/:taskId → Update task (only creator)
+- PUT /update-task-status/:taskId → Update task status
+- DELETE /delete-task/:taskId → Delete task (only creator)
+
+### Chat Api
+
+# /api/projects/:projectId/messages
+
+- GET / → Get project chat messages
+- POST / → Send message (REST fallback)
+
+## Socket Events
+
+### Join project room
+
+- socket.emit("project:join", { projectId })
+
+### Leave project room
+
+- socket.emit("project:leave", { projectId })
+
+### Error
+
+- socket.on("project:error", (data) => {})
+
+### Send Message
+
+socket.emit("chat:send", {
+projectId,
+text
+})
+
+### Receive message (real-time)
+
+- socket.on("chat:new", (message) => {})
+
+### Error
+
+socket.on("chat:error", (data) => {})
