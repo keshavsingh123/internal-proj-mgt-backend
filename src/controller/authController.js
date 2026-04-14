@@ -5,7 +5,9 @@ import {
   loginUserService,
   registerUserService,
   softDeleteUserService,
+  getSystemUsersService,
 } from "../service/authService.js";
+import pick from "../utils/pick.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
   const result = await registerUserService(req.body);
@@ -34,6 +36,16 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
     success: true,
     message: "User retrieved successfully",
     user,
+  });
+});
+export const getSystemUsers = asyncHandler(async (req, res) => {
+  const options = pick(req.query, ["page", "limit", "search", "projectId"]);
+  const result = await getSystemUsersService(options);
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: "Users retrieved successfully",
+    ...result,
   });
 });
 export const deleteUser = asyncHandler(async (req, res) => {

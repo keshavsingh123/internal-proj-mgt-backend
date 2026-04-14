@@ -4,6 +4,7 @@ import {
   loginUser,
   registerUser,
   deleteUser,
+  getSystemUsers,
 } from "../controller/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import joiValidate from "../middleware/joiValidate.js";
@@ -15,5 +16,5 @@ router.post("/register", joiValidate(registerSchema), registerUser);
 router.post("/login", joiValidate(loginSchema), loginUser);
 router.get("/get-user", protect, getCurrentUser);
 router.delete("/delete-user", protect, deleteUser);
-
+router.get("/users", getSystemUsers);
 export default router;

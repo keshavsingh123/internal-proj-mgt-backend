@@ -17,11 +17,12 @@ import {
   addProjectMemberSchema,
 } from "../validation/projectValidation.js";
 import projectTaskRoutes from "./projectTaskRoute.js";
-
+import projectMessageRoutes from "./messageRoute.js";
 const router = express.Router();
 
 router.use(protect);
 router.use("/:projectId/tasks", projectTaskRoutes);
+router.use("/:projectId/messages", projectMessageRoutes);
 
 router
   .route("/")

@@ -20,3 +20,9 @@ export const addProjectMemberSchema = Joi.object({
     "any.required": "memberId is required",
   }),
 });
+export const createMessageSchema = Joi.object({
+  text: Joi.string().trim().min(1).max(1000).required().messages({
+    "string.empty": "Message text is required",
+    "any.required": "Message text is required",
+  }),
+});

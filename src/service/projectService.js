@@ -1,6 +1,6 @@
 import { StatusCodes } from "http-status-codes";
-import Project from "../model/Project.js";
-import User from "../model/User.js";
+import Project from "../model/project.js";
+import User from "../model/user.js";
 import pick from "../utils/pick.js";
 import {
   buildPaginationMeta,

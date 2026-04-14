@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { StatusCodes } from "http-status-codes";
-import User from "../model/User.js";
+import User from "../model/user.js";
 
 export const protect = async (req, res, next) => {
   try {

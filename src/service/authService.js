@@ -1,8 +1,12 @@
 import bcrypt from "bcrypt";
 import { StatusCodes } from "http-status-codes";
-import User from "../model/User.js";
+import User from "../model/user.js";
 import generateToken from "../utils/generateToken.js";
-
+import pick from "../utils/pick.js";
+import {
+  buildPaginationMeta,
+  getPaginationOptions,
+} from "../utils/pagination.js";
 export const registerUserService = async ({ name, email, password }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -95,6 +99,35 @@ export const getCurrentUserService = async (userId) => {
   }
 
   return user;
+};
+export const getSystemUsersService = async (queryParams) => {
+  const filters = pick(queryParams, ["search", "projectId"]);
+  const { page, limit, skip } = getPaginationOptions(queryParams);
+
+  const query = {
+    isDelete: 1,
+  };
+
+  if (filters.search) {
+    query.$or = [
+      { name: { $regex: filters.search, $options: "i" } },
+      { email: { $regex: filters.search, $options: "i" } },
+    ];
+  }
+
+  const [users, total] = await Promise.all([
+    User.find(query)
+      .select("_id name email role isDelete createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    User.countDocuments(query),
+  ]);
+
+  return {
+    users,
+    pagination: buildPaginationMeta({ page, limit, total }),
+  };
 };
 
 export const softDeleteUserService = async (userId) => {

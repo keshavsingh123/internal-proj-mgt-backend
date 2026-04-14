@@ -1,6 +1,6 @@
 import { StatusCodes } from "http-status-codes";
-import Project from "../model/Project.js";
-import Task from "../model/Task.js";
+import Project from "../model/project.js";
+import Task from "../model/task.js";
 import { emitToProjectRoom } from "../sockets/index.js";
 import pick from "../utils/pick.js";
 import {
